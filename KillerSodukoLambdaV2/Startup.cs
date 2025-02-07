@@ -29,13 +29,20 @@ namespace KillerSodukoLambdaV2
             Console.WriteLine("ConfigureServices called");
             services.AddCors(options =>
             {
-                options.AddDefaultPolicy(
-                    builder =>
-                    {
-                        // If not overwritten by Env Variable, will use default empty string (from appsettings.json) which matches no origins
-                        //var corsOrigin = Configuration.GetSection("SecuritySettings").GetValue<string>("CorsOrigin");
-                        builder.AllowAnyOrigin().AllowAnyMethod();
-                    });
+                //options.AddDefaultPolicy(
+                //    builder =>
+                //    {
+                //        // If not overwritten by Env Variable, will use default empty string (from appsettings.json) which matches no origins
+                //        //var corsOrigin = Configuration.GetSection("SecuritySettings").GetValue<string>("CorsOrigin");
+                //        builder.AllowAnyOrigin().AllowAnyMethod();
+                //    });
+                options.AddPolicy("AllowReactApp",
+                builder =>
+                {
+                    builder.WithOrigins("http://localhost:3000") // Update with your React app's URL
+                           .AllowAnyHeader()
+                           .AllowAnyMethod();
+                });
             });
             services.AddControllers();
         }
@@ -55,7 +62,9 @@ namespace KillerSodukoLambdaV2
 
             app.UseAuthorization();
 
-            app.UseCors();
+            app.UseCors("AllowReactApp");
+
+            //comment out for production
             //app.Use((context, next) =>
             //{
             //    context.Response.StatusCode = 200;
