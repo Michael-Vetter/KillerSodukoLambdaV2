@@ -1,8 +1,9 @@
-using System;
-using System.Linq;
-using System.Threading.Tasks;
+using System.Collections.Generic;
+using Amazon.Lambda.APIGatewayEvents;
+using Amazon.Lambda.Core;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
+using Newtonsoft.Json;
 
 namespace KillerSodukoLambdaV2
 {
@@ -48,5 +49,6 @@ namespace KillerSodukoLambdaV2
         protected override void Init(IHostBuilder builder)
         {
         }
+
     }
 }

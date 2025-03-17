@@ -1,16 +1,10 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.HttpsPolicy;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 
 namespace KillerSodukoLambdaV2
 {
@@ -27,6 +21,16 @@ namespace KillerSodukoLambdaV2
         public void ConfigureServices(IServiceCollection services)
         {
             Console.WriteLine("ConfigureServices called");
+            services.AddCors(options =>
+            {
+                options.AddPolicy("AllowMyUI",
+                    builder =>
+                    {
+                        builder.WithOrigins(["https://killersudokuhelper.com"]) 
+                               .AllowAnyHeader()
+                               .AllowAnyMethod();
+                    });
+            });
             services.AddControllers();
         }
 
@@ -42,8 +46,7 @@ namespace KillerSodukoLambdaV2
             app.UseHttpsRedirection();
 
             app.UseRouting();
-
-            app.UseAuthorization();
+            app.UseCors("AllowMyUI");
 
             app.UseEndpoints(endpoints =>
             {

@@ -78,7 +78,6 @@ public class KillerSodukoHelperController : ControllerBase
         return null;                        
     }
 
-
     [HttpPost]
     [Route("log")]
     public async Task<PutObjectResponse> Log([FromBody] LogData logData)
@@ -90,6 +89,39 @@ public class KillerSodukoHelperController : ControllerBase
         catch (Exception ex)
         {
             Console.WriteLine($"Post Activity Log exception ({ex.Message}) stack({ex.StackTrace})");
+        }
+        return null;
+    }
+
+    [HttpGet]
+    [Route("log")]
+    public async Task<string> GetLog()
+    {
+        try
+        {
+            using (var client = new AmazonS3Client(Amazon.RegionEndpoint.USEast1))
+            {
+                Console.WriteLine($"GET activity/log started");
+                string responseBody = "";
+                var currentContentsReq = new GetObjectRequest
+                {
+                    BucketName = "killersudokucontactdata",
+                    Key = "activityLog"
+                };
+
+                var currentContents = await client.GetObjectAsync(currentContentsReq);
+                var currentContentsStream = currentContents.ResponseStream;
+                var reader = new StreamReader(currentContentsStream);
+                {
+                    responseBody = reader.ReadToEnd();
+                    
+                }
+                return responseBody;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"GetLog exception ({ex.Message}) stack({ex.StackTrace})");
         }
         return null;
     }
