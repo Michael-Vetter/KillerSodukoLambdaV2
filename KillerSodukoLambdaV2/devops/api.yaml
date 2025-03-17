@@ -1,0 +1,275 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  S3Bucket:
+    Type: String
+    Description: Name of the S3 bucket containing the Lambda deployment package.
+  S3Key:
+    Type: String
+    Description: S3 key (path) to the Lambda deployment package.
+  CertificateArn:
+    Type: String
+    Description: ARN of the ACM certificate for the custom domain.
+  HostedZoneId:
+    Type: String
+    Description: Route 53 Hosted Zone ID for killersudokuhelper.com.
+
+Resources:
+  # Lambda Execution Role with CloudWatch Logs permissions
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: LambdaS3AccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:ListBucket 
+                Resource: arn:aws:s3:::killersudokucontactdata/*
+
+  # Lambda Function
+  KillerSudokuLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: KillerSodukoLambdaV2::KillerSodukoLambdaV2.LambdaEntryPoint::FunctionHandlerAsync
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        S3Bucket: !Ref S3Bucket
+        S3Key: !Ref S3Key
+      Runtime: dotnet8
+      Timeout: 30
+
+  # API Gateway Rest API
+  KillerSudokuAPI:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: KillerSudokuAPI
+
+  # API Gateway Resources
+  CalculateResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt KillerSudokuAPI.RootResourceId
+      PathPart: calculate
+      RestApiId: !Ref KillerSudokuAPI
+
+  ContactResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt KillerSudokuAPI.RootResourceId
+      PathPart: contact
+      RestApiId: !Ref KillerSudokuAPI
+
+  LogResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt KillerSudokuAPI.RootResourceId
+      PathPart: log
+      RestApiId: !Ref KillerSudokuAPI
+
+  # Methods for API endpoints
+  PostCalculateMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: POST
+      ResourceId: !Ref CalculateResource
+      RestApiId: !Ref KillerSudokuAPI
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri: !Sub
+          - arn:aws:apigateway:${Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations
+          - Region: !Ref "AWS::Region"
+            LambdaArn: !GetAtt KillerSudokuLambda.Arn
+
+  PostContactMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: POST
+      ResourceId: !Ref ContactResource
+      RestApiId: !Ref KillerSudokuAPI
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri: !Sub
+          - arn:aws:apigateway:${Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations
+          - Region: !Ref "AWS::Region"
+            LambdaArn: !GetAtt KillerSudokuLambda.Arn
+
+  PostLogMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: POST
+      ResourceId: !Ref LogResource
+      RestApiId: !Ref KillerSudokuAPI
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri: !Sub
+          - arn:aws:apigateway:${Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations
+          - Region: !Ref "AWS::Region"
+            LambdaArn: !GetAtt KillerSudokuLambda.Arn
+
+  GetLogMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: GET
+      ResourceId: !Ref LogResource
+      RestApiId: !Ref KillerSudokuAPI
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri: !Sub
+          - arn:aws:apigateway:${Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations
+          - Region: !Ref "AWS::Region"
+            LambdaArn: !GetAtt KillerSudokuLambda.Arn
+
+  # Enable CORS for /calculate endpoint
+  CalculateOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      ResourceId: !Ref CalculateResource
+      RestApiId: !Ref KillerSudokuAPI
+      Integration:
+        Type: MOCK
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,sender-ip'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'https://killersudokuhelper.com'"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # Enable CORS for /contact endpoint
+  ContactOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      ResourceId: !Ref ContactResource
+      RestApiId: !Ref KillerSudokuAPI
+      Integration:
+        Type: MOCK
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,sender-ip'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'https://killersudokuhelper.com'"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # Enable CORS for /log endpoint
+  LogOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      ResourceId: !Ref LogResource
+      RestApiId: !Ref KillerSudokuAPI
+      Integration:
+        Type: MOCK
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,sender-ip'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'https://killersudokuhelper.com'"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # API Deployment with stage "v1"
+  APIDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - PostCalculateMethod
+      - PostContactMethod
+      - PostLogMethod
+      - GetLogMethod
+      - CalculateOptionsMethod
+      - ContactOptionsMethod
+      - LogOptionsMethod
+    Properties:
+      RestApiId: !Ref KillerSudokuAPI
+
+  ApiGatewayStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      StageName: v1
+      RestApiId: !Ref KillerSudokuAPI
+      DeploymentId: !Ref APIDeployment
+
+  # Custom Domain for API Gateway
+  ApiGatewayDomain:
+    Type: AWS::ApiGateway::DomainName
+    Properties:
+      DomainName: api.killersudokuhelper.com
+      RegionalCertificateArn: !Ref CertificateArn
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+
+  # BasePathMapping for the custom domain
+  ApiGatewayBasePathMapping:
+    Type: AWS::ApiGateway::BasePathMapping
+    Properties:
+      DomainName: !Ref ApiGatewayDomain
+      RestApiId: !Ref KillerSudokuAPI
+      Stage: !Ref ApiGatewayStage
+
+  # Route 53 record for the custom domain
+  ApiGatewayDomainRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: api.killersudokuhelper.com.
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt ApiGatewayDomain.RegionalDomainName
+        HostedZoneId: !GetAtt ApiGatewayDomain.RegionalHostedZoneId
+        
+  LambdaApiGatewayPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt KillerSudokuLambda.Arn
+      Principal: apigateway.amazonaws.com
+      # Allow all methods and resources for your API
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${KillerSudokuAPI}/*/*/*

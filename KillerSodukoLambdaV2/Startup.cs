@@ -1,16 +1,10 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.HttpsPolicy;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 
 namespace KillerSodukoLambdaV2
 {
@@ -29,12 +23,12 @@ namespace KillerSodukoLambdaV2
             Console.WriteLine("ConfigureServices called");
             services.AddCors(options =>
             {
-                options.AddDefaultPolicy(
+                options.AddPolicy("AllowMyUI",
                     builder =>
                     {
-                        // If not overwritten by Env Variable, will use default empty string (from appsettings.json) which matches no origins
-                        //var corsOrigin = Configuration.GetSection("SecuritySettings").GetValue<string>("CorsOrigin");
-                        builder.AllowAnyOrigin().AllowAnyMethod();
+                        builder.WithOrigins(["https://killersudokuhelper.com"]) 
+                               .AllowAnyHeader()
+                               .AllowAnyMethod();
                     });
             });
             services.AddControllers();
@@ -52,16 +46,7 @@ namespace KillerSodukoLambdaV2
             app.UseHttpsRedirection();
 
             app.UseRouting();
-
-            app.UseAuthorization();
-
-            app.UseCors();
-            //app.Use((context, next) =>
-            //{
-            //    context.Response.StatusCode = 200;
-            //    context.Response.Headers["Access-Control-Allow-Origin"] = "*";
-            //    return next.Invoke();
-            //});
+            app.UseCors("AllowMyUI");
 
             app.UseEndpoints(endpoints =>
             {
