@@ -25,7 +25,7 @@ public class KillerSodukoHelperController : ControllerBase
             Console.WriteLine($"request({dataToLog})");
             try
             {
-                Request.Headers.TryGetValue("sender-ip", out var ipAddress);
+                var ipAddress = GetClientIpAddress();
                 var result = await doLogging(new LogData { Data = $"{ipAddress} {dataToLog}" });
             }
             catch (Exception ex)
@@ -156,6 +156,16 @@ public class KillerSodukoHelperController : ControllerBase
                 return await client.PutObjectAsync(putRequest);
             }
         }
+    }
+
+    private string GetClientIpAddress()
+    {
+        if (Request.Headers.TryGetValue("X-Forwarded-For", out var forwardedFor) && forwardedFor.Count > 0)
+        {
+            return forwardedFor.ToString().Split(',')[0].Trim();
+        }
+
+        return HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
     }
 }
 

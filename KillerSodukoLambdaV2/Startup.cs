@@ -26,7 +26,10 @@ namespace KillerSodukoLambdaV2
                 options.AddPolicy("AllowMyUI",
                     builder =>
                     {
-                        builder.WithOrigins(["https://killersudokuhelper.com"]) 
+                        builder.WithOrigins([
+                                "https://killersudokuhelper.com",
+                                "https://www.killersudokuhelper.com"
+                            ])
                                .AllowAnyHeader()
                                .AllowAnyMethod();
                     });
